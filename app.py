@@ -1,6 +1,6 @@
 # social_network.py
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-import sqlite3
+from neo4j import GraphDatabase
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -8,9 +8,15 @@ from typing import List, Optional
 # Database Access Layer
 # ======================
 class Database:
-    def __init__(self, db_name='social_network.db'):
-        self.db_name = db_name
+    def __init__(self,
+                uri='bolt://localhost:7687',
+                username='neo4j',
+                password='your_password_here'):   # <-- put your real password here
+        self._driver = GraphDatabase.driver(uri, auth=(username, password))
         self._init_db()
+
+    def close(self):
+        self._driver.close()
     
     def _init_db(self):
         with self._driver.session() as session:
@@ -24,9 +30,6 @@ class Database:
                 'FOR (u:User) REQUIRE u.username IS UNIQUE'
             )
 
-    def _get_connection(self):
-        return sqlite3.connect(self.db_name)
-    
     # User operations
     def create_user(self, username: str, name: str) -> int:
         with self._get_connection() as conn:
@@ -134,7 +137,11 @@ class Database:
 # ======================
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
-db = Database()
+db = Database(
+    uri='bolt://localhost:7687',
+    username='neo4j',
+    password='your_password_here'   # <-- same password here
+)
 
 # Sample data initialization
 with app.app_context():
