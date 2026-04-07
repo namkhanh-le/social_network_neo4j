@@ -32,24 +32,33 @@ class Database:
 
     # User operations
     def create_user(self, username: str, name: str) -> int:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('INSERT INTO users (username, name) VALUES (?, ?)', (username, name))
-            return cursor.lastrowid
-    
+        with self._driver.session() as session:
+            result = session.run(
+                'MATCH (u:User) RETURN coalesce(max(u.id), 0) AS max_id'
+            )
+            new_id = result.single()['max_id'] + 1
+
+            session.run(
+                'CREATE (u:User {id: $id, username: $username, name: $name})',
+                id=new_id, username=username, name=name
+            )
+            return new_id
+
     def get_user(self, user_id: int) -> Optional[dict]:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT id, username, name FROM users WHERE id = ?', (user_id,))
-            row = cursor.fetchone()
-            return {'id': row[0], 'username': row[1], 'name': row[2]} if row else None
-    
+        with self._driver.session() as session:
+            result = session.run(
+                '''
+                MATCH (u:User {id: $id})
+                RETURN u.id AS id, u.username AS username, u.name AS name
+                ''',
+                id=user_id
+            )
+            row = result.single()
+            return {'id': row['id'], 'username': row['username'], 'name': row['name']} if row else None
+
     def get_all_users(self) -> List[dict]:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT id, username, name FROM users')
-            return [{'id': row[0], 'username': row[1], 'name': row[2]} for row in cursor.fetchall()]
-    
+        with self._driver.session() as session:
+            return [{'id': r['id'], 'username': r['username'], 'name': r['name']} for r in result]
     # Post operations
     def create_post(self, user_id: int, content: str) -> int:
         with self._get_connection() as conn:
