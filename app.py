@@ -61,28 +61,39 @@ class Database:
             return [{'id': r['id'], 'username': r['username'], 'name': r['name']} for r in result]
     # Post operations
     def create_post(self, user_id: int, content: str) -> int:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('INSERT INTO posts (user_id, content) VALUES (?, ?)', (user_id, content))
-            return cursor.lastrowid
-    
+        with self._driver.session() as session:
+            # Same max-id trick as create_user, but for Post nodes
+            result = session.run(
+                'MATCH (p:Post) RETURN coalesce(max(p.id), 0) AS max_id'
+            )
+            new_id = result.single()['max_id'] + 1
+
+            session.run(
+                '''
+                MATCH (u:User {id: $user_id})
+                CREATE (p:Post {id: $id, content: $content, timestamp: datetime()})
+                CREATE (u)-[:POSTED]->(p)
+                ''',
+                user_id=user_id, id=new_id, content=content
+            )
+            return new_id
+
     def get_posts_by_user(self, user_id: int) -> List[dict]:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT p.id, p.content, p.timestamp, u.username, u.name 
-                FROM posts p JOIN users u ON p.user_id = u.id 
-                WHERE p.user_id = ?
+        with self._driver.session() as session:
+
+            result = session.run(
+                '''
+                MATCH (u:User {id: $user_id})-[:POSTED]->(p:Post)
+                RETURN p.id AS id,
+                    p.content AS content,
+                    toString(p.timestamp) AS timestamp,
+                    u.username AS username,
+                    u.name AS name
                 ORDER BY p.timestamp DESC
-            ''', (user_id,))
-            return [{
-                'id': row[0],
-                'content': row[1],
-                'timestamp': row[2],
-                'username': row[3],
-                'name': row[4]
-            } for row in cursor.fetchall()]
-    
+                ''',
+                user_id=user_id
+            )
+            return [dict(r) for r in result]
     def get_feed(self, user_id: int) -> List[dict]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
