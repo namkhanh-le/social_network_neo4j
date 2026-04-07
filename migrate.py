@@ -1,20 +1,11 @@
 import sqlite3
 from neo4j import GraphDatabase
 
-# ======================
-# CONFIG
-# ======================
-
 SQLITE_DB_PATH = "social_network.db"
 
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "your_password_here"
-
-
-# ======================
-# CONNECT
-# ======================
+NEO4J_PASSWORD = "12345678"
 
 sqlite_conn = sqlite3.connect(SQLITE_DB_PATH)
 sqlite_cursor = sqlite_conn.cursor()
@@ -24,19 +15,9 @@ neo4j_driver = GraphDatabase.driver(
     auth=(NEO4J_USER, NEO4J_PASSWORD)
 )
 
-
-# ======================
-# CLEAN NEO4J (optional)
-# ======================
-
 def clear_database():
     with neo4j_driver.session() as session:
         session.run("MATCH (n) DETACH DELETE n")
-
-
-# ======================
-# MIGRATION FUNCTIONS
-# ======================
 
 def migrate_users():
     print("Migrating users...")
@@ -97,15 +78,9 @@ def migrate_follows():
                 followee_id=followee_id
             )
 
-
-# ======================
-# MAIN
-# ======================
-
 def main():
     print("Starting migration...")
-
-    # Optional: wipe Neo4j before inserting
+    
     clear_database()
 
     migrate_users()

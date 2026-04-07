@@ -11,7 +11,7 @@ class Database:
     def __init__(self,
                 uri='bolt://localhost:7687',
                 username='neo4j',
-                password='your_password_here'):   # <-- put your real password here
+                password='12345678'):
         self._driver = GraphDatabase.driver(uri, auth=(username, password))
         self._init_db()
 
@@ -58,6 +58,9 @@ class Database:
 
     def get_all_users(self) -> List[dict]:
         with self._driver.session() as session:
+            result = session.run(
+                'MATCH (u:User) RETURN u.id AS id, u.username AS username, u.name AS name'
+            )
             return [{'id': r['id'], 'username': r['username'], 'name': r['name']} for r in result]
     # Post operations
     def create_post(self, user_id: int, content: str) -> int:
@@ -171,7 +174,7 @@ app.secret_key = 'your_secret_key_here'
 db = Database(
     uri='bolt://localhost:7687',
     username='neo4j',
-    password='your_password_here'   # <-- same password here
+    password='12345678'
 )
 
 # Sample data initialization
